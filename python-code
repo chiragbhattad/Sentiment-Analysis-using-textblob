@@ -1,0 +1,83 @@
+import re
+import tweepy
+from tweepy import OAuthHandler
+from textblob import TextBlob
+
+class TwitterClient(object):
+#Generic Twitter class for Sentiment analysis
+    def __init__(self):
+#Class Constructor
+#Keys and tokens from the Twitter Application
+        consumer_key = 'XXXXXXXXXXXXXXXXXX'
+        consumer_secret = 'XXXXXXXXXXXXXXXXXXXXXX'
+        access_token = 'XXXXXXXXXXXXXXXXXXXXX'
+        access_token_secret = 'XXXXXXXXXXXXXXXXXXXXX'
+        try:
+            self.auth = OAuthHandler(consumer_key, consumer_secret)
+            self.auth.set_access_token(access_token, access_token_secret)
+            self.api = tweepy.API(self.auth)
+        except:
+            print("Error: Authentication Failed")
+            
+    def clean_tweet(self, tweet):
+        #Tweet cleaning to remove hatags and other special characters
+        return ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\?\?\s+)", " ", tweet).split())
+
+    def get_tweet_sentiment(self, tweet):
+        #Function to classify sentiments of passed tweets using TextBlob's sentiment method
+        analysis = TextBlob(self.clean_tweet(tweet))
+        #set sentiments
+        if analysis.sentiment.polarity > 0:
+            return 'Positive'
+        elif analysis.sentiment.polarity == 0:
+            return ' Neutral'
+        else:
+            return 'Negative'
+
+    def get_tweets(self, query, count = 1000):
+        tweets = []
+        try:
+            fetched_tweets = self.api.search(q = query, count = count)
+            for tweet in fetched_tweets:
+                    # empty dictionary to store required params of a tweet
+                    parsed_tweet = {}
+
+                    # saving text of tweet
+                    parsed_tweet['text'] = tweet.text
+                    # saving sentiment of tweet
+                    parsed_tweet['sentiment'] = self.get_tweet_sentiment(tweet.text)
+
+                    # appending parsed tweet to tweets list
+                    if tweet.retweet_count > 0:
+                        # if tweet has retweets, ensure that it is appended only once
+                        if parsed_tweet not in tweets:
+                            tweets.append(parsed_tweet)
+                    else:
+                        tweets.append(parsed_tweet)
+
+                # return parsed tweets
+            return tweets
+
+        except tweepy.TweepError as e:
+            # print error (if any)
+            print("Error : " + str(e))
+           
+ 
+
+def main():
+    api = TwitterClient()
+    tweets = api.get_tweets(query = '#DonaldTrump', count = 500) 
+    ptweets = [tweet for tweet in tweets if tweet['sentiment'] == 'Positive']
+    print("Positive tweets percentage: {} %".format(100*len(ptweets)/len(tweets)))
+    ntweets = [tweet for tweet in tweets if tweet['sentiment'] == 'Negative']
+    print("Negative tweets percentage: {} %".format(100*len(ntweets)/len(tweets)))
+    print("\n\nPositive tweets:")
+    for tweet in ptweets[:5]:
+        print(tweet['text'])
+    print("\n\nNegative tweets:")
+    for tweet in ntweets[:5]:
+        print(tweet['text'])
+ 
+if __name__ == "__main__":
+    # calling main function
+    main()
